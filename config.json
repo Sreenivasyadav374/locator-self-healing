@@ -1,0 +1,19 @@
+{
+  "scraping": {
+    "timeout": 30000,
+    "headless": true,
+    "max_concurrent": 3,
+    "wait_time": 2000
+  },
+  "ml": {
+    "test_size": 0.2,
+    "random_state": 42,
+    "n_estimators": 100,
+    "max_depth": 10
+  },
+  "features": {
+    "text_max_length": 200,
+    "max_selectors": 5,
+    "quality_threshold": 2.0
+  }
+}
