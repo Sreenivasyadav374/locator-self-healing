@@ -1,0 +1,60 @@
+FAILED tests/test_login.py::test_login_form - playwright._impl._api_types.TimeoutError: Locator(".login-btn") not found
+FAILED tests/test_search.py::test_search_functionality - playwright._impl._api_types.TimeoutError: waiting for selector ".search-button" timeout 30000ms
+FAILED tests/test_contact.py::test_form_submission - playwright._impl._api_types.Error: No element found for selector "form .submit-button"
+FAILED tests/test_navigation.py::test_navigation_menu - playwright._impl._api_types.TimeoutError: Locator(".nav-menu .nav-item:has-text('Products')") not found
+FAILED tests/test_dashboard.py::test_dynamic_content - playwright._impl._api_types.Error: Element not found: "[data-testid='user-profile']"
+FAILED tests/test_users.py::test_table_interactions - playwright._impl._api_types.TimeoutError: waiting for selector "th:has-text('Name')" timeout 30000ms
+FAILED tests/test_products.py::test_modal_interactions - playwright._impl._api_types.Error: Locator(".product-card:first-child .view-details") not found
+FAILED tests/test_upload.py::test_file_upload - playwright._impl._api_types.TimeoutError: Locator(".upload-form .submit-btn") not found
+FAILED tests/test_roles.py::test_role_based_access[admin] - playwright._impl._api_types.Error: No element found for selector ".login-submit"
+FAILED tests/test_responsive.py::test_responsive_design - playwright._impl._api_types.TimeoutError: Locator(".desktop-nav") not found
+
+=========================== FAILURES ===========================
+_________________________ test_login_form _________________________
+
+    def test_login_form(page: Page):
+        """Test login functionality with various locator types."""
+        # Navigate to login page
+        page.goto("https://example.com/login")
+        
+        # Fill username field - using ID selector
+        page.locator("#username").fill("testuser@example.com")
+        
+        # Fill password field - using name attribute
+        page.locator("[name='password']").fill("testpassword123")
+        
+        # Click login button - using class selector (might fail)
+>       page.locator(".login-btn").click()
+
+tests/test_login.py:18: TimeoutError: Locator(".login-btn") not found
+
+_________________________ test_search_functionality _________________________
+
+    def test_search_functionality(page: Page):
+        """Test search feature with different locator approaches."""
+        page.goto("https://example.com/search")
+        
+        # Search input using placeholder
+        page.get_by_placeholder("Enter search terms...").fill("playwright testing")
+        
+        # Search button using text content (might fail if text changes)
+>       page.get_by_text("Search").click()
+
+tests/test_search.py:12: TimeoutError: waiting for selector ".search-button" timeout 30000ms
+
+_________________________ test_form_submission _________________________
+
+    def test_form_submission(page: Page):
+        """Test form submission with various input types."""
+        page.goto("https://example.com/contact")
+        
+        # Fill contact form
+        page.locator("#contact-name").fill("John Doe")
+        page.locator("#contact-email").fill("john@example.com")
+        page.locator("#contact-subject").select_option("General Inquiry")
+        page.locator("#contact-message").fill("This is a test message.")
+        
+        # Submit form - using CSS selector that might be fragile
+>       page.locator("form .submit-button").click()
+
+tests/test_contact.py:13: Error: No element found for selector "form .submit-button"

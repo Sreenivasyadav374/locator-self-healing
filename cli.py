@@ -12,6 +12,8 @@ from pathlib import Path
 from scraper import WebScraper
 from features import FeatureExtractor
 from models import MLPredictor
+from test_parser import PlaywrightTestParser
+from locator_fixer import LocatorFixer
 from utils import setup_logging, load_config
 
 
@@ -297,6 +299,191 @@ def analyze(ctx, data_file, output_dir):
     except Exception as e:
         logging.error(f"Analysis failed: {e}")
         click.echo(f"✗ Analysis failed: {e}", err=True)
+        sys.exit(1)
+
+
+@cli.command()
+@click.option('--test-file', '-t', required=True, help='Test file containing failed locator')
+@click.option('--failed-selector', '-s', required=True, help='The selector that failed')
+@click.option('--model-file', '-m', required=True, help='Trained model file')
+@click.option('--page-url', '-u', help='URL of the page being tested (optional)')
+@click.option('--error-log', '-e', help='Error log file from test execution (optional)')
+@click.option('--apply-fix', '-a', is_flag=True, help='Automatically apply the best fix')
+@click.pass_context
+def fix_locator(ctx, test_file, failed_selector, model_file, page_url, error_log, apply_fix):
+    """Fix a failed Playwright test locator using ML predictions and test context."""
+    try:
+        fixer = LocatorFixer(model_file)
+        
+        # Read error log if provided
+        error_log_content = None
+        if error_log:
+            with open(error_log, 'r') as f:
+                error_log_content = f.read()
+        
+        logging.info(f"Fixing failed locator: {failed_selector} in {test_file}")
+        
+        # Get fix suggestions
+        fix_result = fixer.fix_failed_locator(
+            test_file, failed_selector, page_url, error_log_content
+        )
+        
+        if not fix_result.get('success', False):
+            click.echo(f"✗ Failed to generate fixes: {fix_result.get('error', 'Unknown error')}", err=True)
+            sys.exit(1)
+        
+        # Display suggestions
+        suggestions = fix_result.get('suggestions', [])
+        click.echo(f"✓ Generated {len(suggestions)} fix suggestions for: {failed_selector}")
+        click.echo("="*80)
+        
+        for i, suggestion in enumerate(suggestions[:5], 1):
+            click.echo(f"{i}. {suggestion['playwright_code']}")
+            click.echo(f"   Confidence: {suggestion['confidence']:.3f} | Priority: {suggestion['priority_score']:.3f}")
+            click.echo(f"   Method: {suggestion['method']} | Reasoning: {suggestion['reasoning']}")
+            click.echo()
+        
+        # Apply fix if requested
+        if apply_fix and suggestions:
+            best_suggestion = suggestions[0]
+            click.echo(f"Applying best fix: {best_suggestion['playwright_code']}")
+            
+            apply_result = fixer.apply_fix_to_test(
+                test_file, 
+                failed_selector, 
+                best_suggestion['selector'],
+                best_suggestion['method']
+            )
+            
+            if apply_result.get('success', False):
+                click.echo(f"✓ Fix applied successfully!")
+                if apply_result.get('backup_created'):
+                    click.echo(f"  Backup created: {apply_result.get('backup_path')}")
+            else:
+                click.echo(f"✗ Failed to apply fix: {apply_result.get('error')}", err=True)
+        
+    except Exception as e:
+        logging.error(f"Locator fixing failed: {e}")
+        click.echo(f"✗ Locator fixing failed: {e}", err=True)
+        sys.exit(1)
+
+
+@cli.command()
+@click.option('--test-dir', '-t', required=True, help='Directory containing test files')
+@click.option('--error-log', '-e', required=True, help='Error log file from test execution')
+@click.option('--model-file', '-m', required=True, help='Trained model file')
+@click.option('--output', '-o', default='batch_fix_results.json', help='Output file for fix results')
+@click.option('--apply-fixes', '-a', is_flag=True, help='Automatically apply the best fixes')
+@click.pass_context
+def batch_fix(ctx, test_dir, error_log, model_file, output, apply_fixes):
+    """Fix multiple failed locators from a test run using ML predictions."""
+    try:
+        fixer = LocatorFixer(model_file)
+        
+        logging.info(f"Starting batch fix for test directory: {test_dir}")
+        
+        # Run batch fix
+        results = fixer.batch_fix_failed_locators(test_dir, error_log)
+        
+        if not results.get('success', True):  # batch_fix returns summary, not success flag
+            click.echo(f"✗ Batch fix failed: {results.get('error', 'Unknown error')}", err=True)
+            sys.exit(1)
+        
+        # Save results
+        import json
+        with open(output, 'w') as f:
+            json.dump(results, f, indent=2, default=str)
+        
+        # Display summary
+        total = results.get('total_failed_locators', 0)
+        successful = results.get('successful_fixes', 0)
+        failed = results.get('failed_fixes', 0)
+        
+        click.echo(f"✓ Batch fix complete!")
+        click.echo(f"  - Total failed locators: {total}")
+        click.echo(f"  - Successful fixes: {successful}")
+        click.echo(f"  - Failed fixes: {failed}")
+        click.echo(f"  - Results saved to: {output}")
+        
+        # Apply fixes if requested
+        if apply_fixes:
+            click.echo("\nApplying fixes...")
+            applied_count = 0
+            
+            for fix_result in results.get('fix_results', []):
+                if fix_result.get('success') and fix_result.get('suggestions'):
+                    try:
+                        best_suggestion = fix_result['suggestions'][0]
+                        apply_result = fixer.apply_fix_to_test(
+                            fix_result['test_file'],
+                            fix_result['failed_selector'],
+                            best_suggestion['selector'],
+                            best_suggestion['method']
+                        )
+                        
+                        if apply_result.get('success'):
+                            applied_count += 1
+                            click.echo(f"  ✓ Applied fix for {fix_result['failed_selector']}")
+                        else:
+                            click.echo(f"  ✗ Failed to apply fix for {fix_result['failed_selector']}")
+                            
+                    except Exception as e:
+                        click.echo(f"  ✗ Error applying fix: {e}")
+            
+            click.echo(f"\nApplied {applied_count} fixes successfully")
+        
+    except Exception as e:
+        logging.error(f"Batch fix failed: {e}")
+        click.echo(f"✗ Batch fix failed: {e}", err=True)
+        sys.exit(1)
+
+
+@cli.command()
+@click.option('--test-file', '-t', required=True, help='Test file to parse')
+@click.option('--output', '-o', default='parsed_test.json', help='Output file for parsed test info')
+@click.pass_context
+def parse_test(ctx, test_file, output):
+    """Parse a Playwright test file and extract locator information."""
+    try:
+        parser = PlaywrightTestParser()
+        
+        logging.info(f"Parsing test file: {test_file}")
+        
+        # Parse the test file
+        test_info = parser.parse_test_file(test_file)
+        
+        if not test_info:
+            click.echo(f"✗ Failed to parse test file: {test_file}", err=True)
+            sys.exit(1)
+        
+        # Save parsed info
+        import json
+        with open(output, 'w') as f:
+            json.dump(test_info, f, indent=2, default=str)
+        
+        # Display summary
+        locators = test_info.get('locators', [])
+        test_functions = test_info.get('test_functions', [])
+        page_urls = test_info.get('page_urls', [])
+        
+        click.echo(f"✓ Test file parsed successfully!")
+        click.echo(f"  - Locators found: {len(locators)}")
+        click.echo(f"  - Test functions: {len(test_functions)}")
+        click.echo(f"  - Page URLs: {len(page_urls)}")
+        click.echo(f"  - Results saved to: {output}")
+        
+        # Show some locators
+        if locators:
+            click.echo("\nFound locators:")
+            for i, locator in enumerate(locators[:5], 1):
+                click.echo(f"  {i}. {locator['method']}('{locator['selector']}') - Line {locator['line_number']}")
+            
+            if len(locators) > 5:
+                click.echo(f"  ... and {len(locators) - 5} more")
+        
+    except Exception as e:
+        logging.error(f"Test parsing failed: {e}")
+        click.echo(f"✗ Test parsing failed: {e}", err=True)
         sys.exit(1)
 
 
