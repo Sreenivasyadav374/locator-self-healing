@@ -9,12 +9,12 @@ import logging
 import sys
 from pathlib import Path
 
-from scraper import WebScraper
-from features import FeatureExtractor
-from models import MLPredictor
-from test_parser import PlaywrightTestParser
-from locator_fixer import LocatorFixer
-from utils import setup_logging, load_config
+from src.scraper import WebScraper
+from src.features import FeatureExtractor
+from src.models import MLPredictor
+from src.test_parser import PlaywrightTestParser
+from src.locator_fixer import LocatorFixer
+from src.utils import setup_logging, load_config
 
 
 @click.group()

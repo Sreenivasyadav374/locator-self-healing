@@ -1,2 +1,76 @@
-node_modules
+# ==========================
+# Python
+# ==========================
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.dll
+
+# Virtual environments
+venv/
+env/
+.venv/
+playwright_ml_env/
+
+# Python packaging
+*.egg-info/
+*.egg
+dist/
+build/
+
+# Logs and reports
+*.log
+logs/
+test-results/
+analysis_reports/
+html/
+
+# Jupyter & IPython
+.ipynb_checkpoints/
+*.ipynb
+
+# ==========================
+# Node.js
+# ==========================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ==========================
+# Environment / Config
+# ==========================
 .env
+.env.local
+*.secret
+*.bak
+.DS_Store
+
+# ==========================
+# Test / Coverage
+# ==========================
+.pytest_cache/
+coverage/
+*.cover
+*.coverage
+*.lcov
+.cache/
+
+# ==========================
+# ML / Model Artifacts
+# ==========================
+*.joblib
+*.pkl
+*.h5
+*.ckpt
+*.pt
+*.pth
+
+# ==========================
+# Misc
+# ==========================
+*.tmp
+*.swp
+*.swo

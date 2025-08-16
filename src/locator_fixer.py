@@ -7,10 +7,10 @@ import logging
 import re
 from typing import List, Dict, Any, Optional, Tuple
 from pathlib import Path
-from test_parser import PlaywrightTestParser
-from models import MLPredictor
-from scraper import WebScraper
-from features import FeatureExtractor
+from src.test_parser import PlaywrightTestParser
+from src.models import MLPredictor
+from src.scraper import WebScraper
+from src.features import FeatureExtractor
 
 
 class LocatorFixer:
@@ -228,36 +228,23 @@ class LocatorFixer:
         else:
             return 'unknown'
     
-    def _generate_fix_suggestions(self, failed_selector: str, ml_predictions: List[Dict[str, Any]], 
-                                 context_analysis: Dict[str, Any], 
-                                 locator_info: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Generate prioritized fix suggestions combining ML and context analysis."""
+    def _generate_fix_suggestions(self, failed_selector: str, ml_predictions: List[Dict[str, Any]],
+                               context_analysis: Dict[str, Any],
+                               locator_info: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Generate prioritized fix suggestions combining ML, context, and intent boost."""
         suggestions = []
-        
-        # Get the original locator method
         original_method = locator_info.get('method', 'locator')
-        
+
         # Process ML predictions
-        for i, prediction in enumerate(ml_predictions[:5]):  # Top 5 predictions
+        for i, prediction in enumerate(ml_predictions[:5]):
             suggested_selector = prediction.get('locator', '')
             confidence = prediction.get('confidence', 0.0)
-            
-            # Determine the best Playwright method for this selector
-            suggested_method = self._determine_best_playwright_method(
-                suggested_selector, context_analysis
-            )
-            
-            # Generate the full Playwright locator code
+            suggested_method = self._determine_best_playwright_method(suggested_selector, context_analysis)
             playwright_code = self._generate_playwright_code(suggested_method, suggested_selector)
-            
-            # Calculate priority based on ML confidence and context match
-            context_bonus = self._calculate_context_bonus(
-                suggested_selector, context_analysis, suggested_method
-            )
-            
+            context_bonus = self._calculate_context_bonus(suggested_selector, context_analysis, suggested_method)
             priority_score = confidence + context_bonus
-            
-            suggestion = {
+
+            suggestions.append({
                 'rank': i + 1,
                 'selector': suggested_selector,
                 'method': suggested_method,
@@ -267,28 +254,29 @@ class LocatorFixer:
                 'priority_score': priority_score,
                 'reasoning': prediction.get('reasoning', ''),
                 'improvement_score': prediction.get('improvement_score', 0.0)
-            }
-            
-            suggestions.append(suggestion)
-        
-        # Add context-based suggestions if ML didn't cover them
-        context_suggestions = self._generate_context_based_suggestions(
-            failed_selector, context_analysis, original_method
-        )
-        
-        for context_suggestion in context_suggestions:
-            # Check if we already have a similar suggestion
-            if not any(s['selector'] == context_suggestion['selector'] for s in suggestions):
-                suggestions.append(context_suggestion)
-        
-        # Sort by priority score
+            })
+
+        # Context-only fallback suggestions
+        context_suggestions = self._generate_context_based_suggestions(failed_selector, context_analysis, original_method)
+        for cs in context_suggestions:
+            if not any(s['selector'] == cs['selector'] for s in suggestions):
+                suggestions.append(cs)
+
+        # ✅ NEW: Intent keyword boost before sorting
+        intent_kw = context_analysis.get('intent', '').replace('_', ' ').lower().split()
+        if intent_kw:
+            for s in suggestions:
+                for kw in intent_kw:
+                    if kw and kw in s['selector'].lower():
+                        s['priority_score'] += 2.0  # Boost for intent match
+
+        # Sort and re-rank
         suggestions.sort(key=lambda x: x.get('priority_score', 0), reverse=True)
-        
-        # Add rank after sorting
         for i, suggestion in enumerate(suggestions):
             suggestion['final_rank'] = i + 1
-        
-        return suggestions[:10]  # Return top 10 suggestions
+
+        return suggestions[:10]
+
     
     def _determine_best_playwright_method(self, selector: str, context_analysis: Dict[str, Any]) -> str:
         """Determine the best Playwright method for a given selector."""

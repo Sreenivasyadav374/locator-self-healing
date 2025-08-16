@@ -1,0 +1,40 @@
+{
+  "http://127.0.0.1:5500/html/sample_train.html": [
+    {
+      "locator": "#this-is-submit-button",
+      "alternative_locators": [
+        ".btn.btn-primary",
+        "button:contains('Submit')"
+      ],
+      "confidence": 0.656,
+      "quality_score": 3.12,
+      "element_type": "button",
+      "improvement_score": 0.0,
+      "reasoning": "Element has ID - most reliable locator. Medium quality locator"
+    },
+    {
+      "locator": ".btn.btn-secondary",
+      "alternative_locators": [
+        "button:contains('Cancel')",
+        "button"
+      ],
+      "confidence": 0.656,
+      "quality_score": 3.12,
+      "element_type": "button",
+      "improvement_score": 0.0,
+      "reasoning": "Element has classes - moderately reliable. Medium quality locator"
+    },
+    {
+      "locator": ".btn.btn-special",
+      "alternative_locators": [
+        "button:contains('Save Changes')",
+        "button"
+      ],
+      "confidence": 0.656,
+      "quality_score": 3.12,
+      "element_type": "button",
+      "improvement_score": 0.0,
+      "reasoning": "Element has classes - moderately reliable. Medium quality locator"
+    }
+  ]
+}
